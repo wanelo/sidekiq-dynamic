@@ -5,7 +5,7 @@ module Sidekiq
     module Worker
 
       def self.included(base)
-        base.include(Sidekiq::Worker)
+        base.send(:include, Sidekiq::Worker)
         base.class_attribute :dynamic_shard_proc
         base.class_attribute :dynamic_queue_proc
         base.extend(ClassMethods)

@@ -1,64 +1,65 @@
 # Sidekiq::Dynamic
 
-TODO: Write a gem description
+Sidekiq::Dynamic allows Sidekiq jobs to choose their queue or shard/pool based on the job's arguments.
 
 ## Installation
 
-Add this line to your application's Gemfile:
-
 ```ruby
+# Gemfile
 gem 'sidekiq-dynamic'
 ```
 
-And then execute:
-
-    $ bundle
-
-Or install it yourself as:
-
-    $ gem install sidekiq-dynamic
-
 ## Usage
 
-```
-# Add shards to Sidekiq configuration hash
-Sidekiq.configure do |sidekiq|
-  sidekiq.options[:shards] = {
-    :cache => "127.0.0.1:5901",
-    :images => "127.0.0.1:5902"
-  }
-end
+If you have a lot of Sidekiq queues and/or jobs, chances are good that you will eventually overrun the ability of a single Redis instance. When that happens, you need to be able to shard your jobs across multiple Redis instances easily. Let's say you have two Redis instances, and you want to send Sidekiq jobs to both of them.
 
-# Each job has a static queue, each queue has a static shard
+```
+# List shards somewhere (you could even use Sidekiq.config)
+shards = {
+  :cache => "127.0.0.1:5901",
+  :images => "127.0.0.1:5902"
+}
+```
+
+Using a regular Sidekiq::Worker, it's pretty easy to assign particular jobs to a particular queue or shard.
+
+```
+# Assign a worker a static queue, and/or a static shard
 require "sidekiq/worker"
 
 class StaticSidekiqWorker
   include Sidekiq::Worker
-  sidekiq_options queue: "cache_regenerator", pool: Sidekiq.options[:shards][:cache]
+  sidekiq_options queue: "cache_regenerator", pool: shards[:cache]
 end
+```
 
+In contrast to vanilla Sidekiq workers, Sidekiq::Dynamic workers allow you to examine the job arguments and choose a queue or shard for the job to be sent to when the job is queued.
+
+```
 # Dynamic jobs use the job arguments to determine queue or shard
-# In this example, every shard will have both queues.
 require "sidekiq/dynamic/worker"
 
 class DynamicShardAndQueueWorker
   include Sidekiq::Dynamic::Worker
 
+  # In this example, every shard will have both queues.
   dynamic_queue do |args|
     rand(1).zero? ? "cache_sweeper" : "image_generator"
   end
-  
+
   dynamic_shard do |args|
     case args.first
     when "hard_work", "other_hard_work"
-      Sidekiq.options[:shards][:cache]
+      shards[:cache]
     else
-      Sidekiq.options[:shards][:images]
+      shards[:images]
     end
   end
 
 end
 ```
+
+Keep in mind that neither this gem nor Sidekiq itself helps with running Sidekiq workers on each shard and queue. You'll need to start separate Sidekiq processes that are configured to talk to each Redis shard, and you'll need to list the queues those processes should work from.
 
 ## Contributing
 
