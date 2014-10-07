@@ -61,6 +61,8 @@ end
 
 Keep in mind that neither this gem nor Sidekiq itself helps with running Sidekiq workers on each shard and queue. You'll need to start separate Sidekiq processes that are configured to talk to each Redis shard, and you'll need to list the queues those processes should work from.
 
+If you're using Sidekiq Pro to create a batch of jobs, make sure you initialize the batch inside a `Sidekiq::Client.via(shard)` block. This is to ensure both your jobs and the sidekiq batch stats go into the shard you specified.
+
 ## Contributing
 
 1. Fork it ( https://github.com/[my-github-username]/sidekiq-dynamic/fork )
